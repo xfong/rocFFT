@@ -891,19 +891,19 @@ namespace StockhamGenerator
                     lengths, strides are transferred to kernel as a run-time parameter.
                     lengths, strides may be high dimension arrays
                 */
-                str += "( cl::sycl::queue syclQueue, ";
-                str += "const cl::sycl::buffer<" + r2Type + ", 1> * twiddlesBuf, ";
+                str += "( cl::sycl::queue syclQueue,\n\t\t ";
+                str += "const cl::sycl::buffer<" + r2Type + ", 1> * twiddlesBuf,\n\t\t ";
                 if(NeedsLargeTwiddles())
                 {
                     str += "const cl::sycl::buffer<" + r2Type
-                           + ", 1> * twiddles_largeBuf, "; // blockCompute introduce
+                           + ", 1> * twiddles_largeBuf,\n\t\t "; // blockCompute introduce
                     // one more twiddle parameter
                 }
-                str += "const size_t dim, const cl::sycl::buffer<size_t, 1> *lengthsBuf, ";
-                str += "const cl::sycl::buffer<size_t, 1> *stride_inBuf, ";
+                str += "const size_t dim,\n\t\t const cl::sycl::buffer<size_t, 1> *lengthsBuf,\n\t\t ";
+                str += "const cl::sycl::buffer<size_t, 1> *stride_inBuf,\n\t\t ";
                 if(placeness == rocfft_placement_notinplace)
-                    str += "const cl::sycl::buffer<size_t, 1> *stride_out, ";
-                str += "const size_t batch_count, ";
+                    str += "const cl::sycl::buffer<size_t, 1> *stride_out,\n\t\t ";
+                str += "const size_t batch_count,\n\t\t ";
 
                 // Function attributes
                 if(placeness == rocfft_placement_inplace)
@@ -964,36 +964,39 @@ namespace StockhamGenerator
 
 		str += "{\n";
 
-		if (placeness == rocfft_placement_inplace) {
+		if (placeness == rocfft_placement_inplace)
+                {
                     if(inInterleaved)
-		    {
-			str += "auto gb = gbBuf->template get_access<cl::sycl::access::mode::read_write>();"
-		    }
+                    {
+			str += "\t auto gb = gbBuf->template get_access<cl::sycl::access::mode::read_write>();\n";
+                    }
 		    else
-		    {
-			str += "auto gbRe = gbReBuf->template get_access<cl::sycl::access::mode::read_write>();"
-			str += "auto gbIm = gbImBuf->template get_access<cl::sycl::access::mode::read_write>();"
-		    }
-		} else {
-		    if(inInterleaved)
-		    {
-			str += "auto gbIn = gbInBuf->template get_access<cl::sycl::access::mode::read>();"
-		    }
-		    else
-		    {
-			str += "auto gbInRe = gbOutReBuf->template get_access<cl::sycl::access::mode::read>();"
-			str += "auto gbInIm = gbOutImBuf->template get_access<cl::sycl::access::mode::read>();"
-		    }
-		    if(outInterleaved)
-		    {
-			str += "auto gbOut = gbOutBuf->template get_access<cl::sycl::access::mode::write>();"
-		    }
-		    else
-		    {
-			str += "auto gbOutRe = gbOutReBuf->template get_access<cl::sycl::access::mode::write>();"
-			str += "auto gbOutIm = gbOutImBuf->template get_access<cl::sycl::access::mode::write>();"
-		    }
-		}
+                    {
+			str += "\t auto gbRe = gbReBuf->template get_access<cl::sycl::access::mode::read_write>();\n";
+			str += "\t auto gbIm = gbImBuf->template get_access<cl::sycl::access::mode::read_write>();\n";
+                    }
+                }
+                else
+                {
+                    if(inInterleaved)
+                    {
+			str += "\t auto gbIn = gbInBuf->template get_access<cl::sycl::access::mode::read>();\n";
+                    }
+                    else
+                    {
+			str += "\t auto gbInRe = gbOutReBuf->template get_access<cl::sycl::access::mode::read>();\n";
+			str += "\t auto gbInIm = gbOutImBuf->template get_access<cl::sycl::access::mode::read>();\n";
+                    }
+                    if(outInterleaved)
+                    {
+			str += "\t auto gbOut = gbOutBuf->template get_access<cl::sycl::access::mode::write>();\n";
+                    }
+                    else
+                    {
+			str += "\t auto gbOutRe = gbOutReBuf->template get_access<cl::sycl::access::mode::write>();\n";
+			str += "\t auto gbOutIm = gbOutImBuf->template get_access<cl::sycl::access::mode::write>();\n";
+                    }
+                }
 
                 str += "{\n";
 
