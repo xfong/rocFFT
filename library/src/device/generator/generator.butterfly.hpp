@@ -30,7 +30,7 @@ namespace StockhamGenerator
 
             // Function attribute
             bflyStr += "template <typename T>\n";
-            bflyStr += "__device__ void \n";
+            bflyStr += "inline void \n";
 
             // Function name
             bflyStr += ButterflyName(radix, count, fwd);

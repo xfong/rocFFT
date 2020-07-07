@@ -655,7 +655,7 @@ namespace StockhamGenerator
                             str += "template <typename T, StrideBin sb>\n";
                         }
 
-                        str += "__device__ void \n";
+                        str += "inline void \n";
 
                         if(fwd)
                             str += "fwd_len";
@@ -891,18 +891,18 @@ namespace StockhamGenerator
                     lengths, strides are transferred to kernel as a run-time parameter.
                     lengths, strides may be high dimension arrays
                 */
-                str += "( ";
-                str += "const " + r2Type + " * __restrict__ twiddles, ";
+                str += "( cl::sycl::queue syclQueue, ";
+                str += "const cl::sycl::buffer<" + r2Type + ", 1> * twiddlesBuf, ";
                 if(NeedsLargeTwiddles())
                 {
-                    str += "const " + r2Type
-                           + " * __restrict__ twiddles_large, "; // blockCompute introduce
+                    str += "const cl::sycl::buffer<" + r2Type
+                           + ", 1> * twiddles_largeBuf, "; // blockCompute introduce
                     // one more twiddle parameter
                 }
-                str += "const size_t dim, const size_t *lengths, ";
-                str += "const size_t *stride_in, ";
+                str += "const size_t dim, const cl::sycl::buffer<size_t, 1> *lengthsBuf, ";
+                str += "const cl::sycl::buffer<size_t, 1> *stride_inBuf, ";
                 if(placeness == rocfft_placement_notinplace)
-                    str += "const size_t *stride_out, ";
+                    str += "const cl::sycl::buffer<size_t, 1> *stride_out, ";
                 str += "const size_t batch_count, ";
 
                 // Function attributes
@@ -913,17 +913,17 @@ namespace StockhamGenerator
 
                     if(inInterleaved)
                     {
-                        str += r2Type;
-                        str += " * __restrict__   gb";
+                        str += "cl::sycl::buffer<" + r2Type + ", 1>";
+                        str += " *   gbBuf";
 
                         str += ")\n";
                     }
                     else
                     {
-                        str += rType;
-                        str += " * __restrict__   gbRe, ";
-                        str += rType;
-                        str += " * __restrict__   gbIm";
+                        str += "cl::sycl::buffer<" + rType + ", 1>";
+                        str += " *   gbReBuf, ";
+                        str += "cl::sycl::buffer<" + rType + ", 1>";
+                        str += " *   gbImBuf";
 
                         str += ")\n";
                     }
@@ -933,34 +933,67 @@ namespace StockhamGenerator
                     if(inInterleaved)
                     {
                         // str += "const ";
-                        str += r2Type;
-                        str += " * __restrict__   gbIn, "; // has to remove const qualifier
+                        str += "cl::sycl::buffer<" + r2Type + ", 1>";
+                        str += " *   gbInBuf, "; // has to remove const qualifier
                         // due to HIP on ROCM 1.4
                     }
                     else
                     {
-                        str += rType;
-                        str += " * __restrict__   gbInRe, ";
+                        str += "cl::sycl::buffer<" + rType + ", 1>";
+                        str += " *   gbInReBuf, ";
                         // str += "const ";
-                        str += rType;
-                        str += " * __restrict__   gbInIm, ";
+                        str += "cl::sycl::buffer<" + rType + ", 1>";
+                        str += " *   gbInImBuf, ";
                     }
 
                     if(outInterleaved)
                     {
-                        str += r2Type;
-                        str += " * __restrict__   gbOut";
+                        str += "cl::sycl::buffer<" + r2Type + ", 1>";
+                        str += " *   gbOutBuf";
                     }
                     else
                     {
-                        str += rType;
-                        str += " * __restrict__   gbOutRe, ";
-                        str += rType;
-                        str += " * __restrict__   gbOutIm";
+                        str += "cl::sycl::buffer<" + rType + ", 1>";
+                        str += " *   gbOutReBuf, ";
+                        str += "cl::sycl::buffer<" + rType + ", 1>";
+                        str += " *   gbOutImBuf";
                     }
 
                     str += ")\n";
                 }
+
+		str += "{\n";
+
+		if (placeness == rocfft_placement_inplace) {
+                    if(inInterleaved)
+		    {
+			str += "auto gb = gbBuf->template get_access<cl::sycl::access::mode::read_write>();"
+		    }
+		    else
+		    {
+			str += "auto gbRe = gbReBuf->template get_access<cl::sycl::access::mode::read_write>();"
+			str += "auto gbIm = gbImBuf->template get_access<cl::sycl::access::mode::read_write>();"
+		    }
+		} else {
+		    if(inInterleaved)
+		    {
+			str += "auto gbIn = gbInBuf->template get_access<cl::sycl::access::mode::read>();"
+		    }
+		    else
+		    {
+			str += "auto gbInRe = gbOutReBuf->template get_access<cl::sycl::access::mode::read>();"
+			str += "auto gbInIm = gbOutImBuf->template get_access<cl::sycl::access::mode::read>();"
+		    }
+		    if(outInterleaved)
+		    {
+			str += "auto gbOut = gbOutBuf->template get_access<cl::sycl::access::mode::write>();"
+		    }
+		    else
+		    {
+			str += "auto gbOutRe = gbOutReBuf->template get_access<cl::sycl::access::mode::write>();"
+			str += "auto gbOutIm = gbOutImBuf->template get_access<cl::sycl::access::mode::write>();"
+		    }
+		}
 
                 str += "{\n";
 
@@ -1561,7 +1594,7 @@ namespace StockhamGenerator
                     str += "\t}\n\n"; // "}" enclose the loop intrduced
                 } // end if blockCompute
 
-                str += "}\n\n"; // end the kernel
+                str += "}\n}\n\n"; // end the kernel
 
             } // end fwd, backward
         }

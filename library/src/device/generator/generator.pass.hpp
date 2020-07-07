@@ -1762,7 +1762,7 @@ namespace StockhamGenerator
                 passStr += "template <typename T, StrideBin sb>\n";
             }
 
-            passStr += "__device__ void\n";
+            passStr += "inline void\n";
 
             // Function name
             passStr += PassName(position, fwd, length, name_suffix);

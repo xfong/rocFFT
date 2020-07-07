@@ -11,7 +11,7 @@
 #include "../kernels/common.h"
 
 template <typename T>
-__device__ T TW2step(const T* twiddles, size_t u)
+inline T TW2step(const T* twiddles, size_t u)
 {
     size_t j      = u & 255; // get the lowest 8 bits
     T      result = twiddles[j];
@@ -31,7 +31,7 @@ __device__ T TW2step(const T* twiddles, size_t u)
 }
 
 template <typename T>
-__device__ T TW3step(const T* twiddles, size_t u)
+inline T TW3step(const T* twiddles, size_t u)
 {
     size_t j      = u & 255;
     T      result = twiddles[j];
@@ -49,7 +49,7 @@ __device__ T TW3step(const T* twiddles, size_t u)
 }
 
 template <typename T>
-__device__ void FwdRad2B1(T* R0, T* R1)
+inline void FwdRad2B1(T* R0, T* R1)
 {
 
     (*R1) = (*R0) - (*R1);
@@ -57,7 +57,7 @@ __device__ void FwdRad2B1(T* R0, T* R1)
 }
 
 template <typename T>
-__device__ void InvRad2B1(T* R0, T* R1)
+inline void InvRad2B1(T* R0, T* R1)
 {
 
     (*R1) = (*R0) - (*R1);
@@ -65,7 +65,7 @@ __device__ void InvRad2B1(T* R0, T* R1)
 }
 
 template <typename T>
-__device__ void FwdRad3B1(T* R0, T* R1, T* R2)
+inline void FwdRad3B1(T* R0, T* R1, T* R2)
 {
 
     real_type_t<T> TR0, TI0, TR1, TI1, TR2, TI2;
@@ -87,7 +87,7 @@ __device__ void FwdRad3B1(T* R0, T* R1, T* R2)
 }
 
 template <typename T>
-__device__ void InvRad3B1(T* R0, T* R1, T* R2)
+inline void InvRad3B1(T* R0, T* R1, T* R2)
 {
 
     real_type_t<T> TR0, TI0, TR1, TI1, TR2, TI2;
@@ -109,7 +109,7 @@ __device__ void InvRad3B1(T* R0, T* R1, T* R2)
 }
 
 template <typename T>
-__device__ void FwdRad4B1(T* R0, T* R2, T* R1, T* R3)
+inline void FwdRad4B1(T* R0, T* R2, T* R1, T* R3)
 {
 
     T res;
@@ -131,7 +131,7 @@ __device__ void FwdRad4B1(T* R0, T* R2, T* R1, T* R3)
 }
 
 template <typename T>
-__device__ void InvRad4B1(T* R0, T* R2, T* R1, T* R3)
+inline void InvRad4B1(T* R0, T* R2, T* R1, T* R3)
 {
 
     T res;
@@ -152,7 +152,7 @@ __device__ void InvRad4B1(T* R0, T* R2, T* R1, T* R3)
 }
 
 template <typename T>
-__device__ void FwdRad5B1(T* R0, T* R1, T* R2, T* R3, T* R4)
+inline void FwdRad5B1(T* R0, T* R1, T* R2, T* R3, T* R4)
 {
 
     real_type_t<T> TR0, TI0, TR1, TI1, TR2, TI2, TR3, TI3, TR4, TI4;
@@ -190,7 +190,7 @@ __device__ void FwdRad5B1(T* R0, T* R1, T* R2, T* R3, T* R4)
 }
 
 template <typename T>
-__device__ void InvRad5B1(T* R0, T* R1, T* R2, T* R3, T* R4)
+inline void InvRad5B1(T* R0, T* R1, T* R2, T* R3, T* R4)
 {
 
     real_type_t<T> TR0, TI0, TR1, TI1, TR2, TI2, TR3, TI3, TR4, TI4;
@@ -228,7 +228,7 @@ __device__ void InvRad5B1(T* R0, T* R1, T* R2, T* R3, T* R4)
 }
 
 template <typename T>
-__device__ void FwdRad6B1(T* R0, T* R1, T* R2, T* R3, T* R4, T* R5)
+inline void FwdRad6B1(T* R0, T* R1, T* R2, T* R3, T* R4, T* R5)
 {
 
     real_type_t<T> TR0, TI0, TR1, TI1, TR2, TI2, TR3, TI3, TR4, TI4, TR5, TI5;
@@ -267,7 +267,7 @@ __device__ void FwdRad6B1(T* R0, T* R1, T* R2, T* R3, T* R4, T* R5)
 }
 
 template <typename T>
-__device__ void InvRad6B1(T* R0, T* R1, T* R2, T* R3, T* R4, T* R5)
+inline void InvRad6B1(T* R0, T* R1, T* R2, T* R3, T* R4, T* R5)
 {
 
     real_type_t<T> TR0, TI0, TR1, TI1, TR2, TI2, TR3, TI3, TR4, TI4, TR5, TI5;
@@ -306,7 +306,7 @@ __device__ void InvRad6B1(T* R0, T* R1, T* R2, T* R3, T* R4, T* R5)
 }
 
 template <typename T>
-__device__ void FwdRad7B1(T* R0, T* R1, T* R2, T* R3, T* R4, T* R5, T* R6)
+inline void FwdRad7B1(T* R0, T* R1, T* R2, T* R3, T* R4, T* R5, T* R6)
 {
 
     T p0;
@@ -389,7 +389,7 @@ __device__ void FwdRad7B1(T* R0, T* R1, T* R2, T* R3, T* R4, T* R5, T* R6)
 }
 
 template <typename T>
-__device__ void InvRad7B1(T* R0, T* R1, T* R2, T* R3, T* R4, T* R5, T* R6)
+inline void InvRad7B1(T* R0, T* R1, T* R2, T* R3, T* R4, T* R5, T* R6)
 {
 
     T p0;
@@ -472,7 +472,7 @@ __device__ void InvRad7B1(T* R0, T* R1, T* R2, T* R3, T* R4, T* R5, T* R6)
 }
 
 template <typename T>
-__device__ void FwdRad8B1(T* R0, T* R4, T* R2, T* R6, T* R1, T* R5, T* R3, T* R7)
+inline void FwdRad8B1(T* R0, T* R4, T* R2, T* R6, T* R1, T* R5, T* R3, T* R7)
 {
 
     T res;
@@ -514,7 +514,7 @@ __device__ void FwdRad8B1(T* R0, T* R4, T* R2, T* R6, T* R1, T* R5, T* R3, T* R7
 }
 
 template <typename T>
-__device__ void InvRad8B1(T* R0, T* R4, T* R2, T* R6, T* R1, T* R5, T* R3, T* R7)
+inline void InvRad8B1(T* R0, T* R4, T* R2, T* R6, T* R1, T* R5, T* R3, T* R7)
 {
 
     T res;
@@ -555,7 +555,7 @@ __device__ void InvRad8B1(T* R0, T* R4, T* R2, T* R6, T* R1, T* R5, T* R3, T* R7
 }
 
 template <typename T>
-__device__ void FwdRad10B1(T* R0, T* R1, T* R2, T* R3, T* R4, T* R5, T* R6, T* R7, T* R8, T* R9)
+inline void FwdRad10B1(T* R0, T* R1, T* R2, T* R3, T* R4, T* R5, T* R6, T* R7, T* R8, T* R9)
 {
 
     real_type_t<T> TR0, TI0, TR1, TI1, TR2, TI2, TR3, TI3, TR4, TI4, TR5, TI5, TR6, TI6, TR7, TI7,
@@ -627,7 +627,7 @@ __device__ void FwdRad10B1(T* R0, T* R1, T* R2, T* R3, T* R4, T* R5, T* R6, T* R
 }
 
 template <typename T>
-__device__ void InvRad10B1(T* R0, T* R1, T* R2, T* R3, T* R4, T* R5, T* R6, T* R7, T* R8, T* R9)
+inline void InvRad10B1(T* R0, T* R1, T* R2, T* R3, T* R4, T* R5, T* R6, T* R7, T* R8, T* R9)
 {
 
     real_type_t<T> TR0, TI0, TR1, TI1, TR2, TI2, TR3, TI3, TR4, TI4, TR5, TI5, TR6, TI6, TR7, TI7,
@@ -699,7 +699,7 @@ __device__ void InvRad10B1(T* R0, T* R1, T* R2, T* R3, T* R4, T* R5, T* R6, T* R
 }
 
 template <typename T>
-__device__ void FwdRad16B1(T* R0,
+inline void FwdRad16B1(T* R0,
                            T* R8,
                            T* R4,
                            T* R12,
@@ -812,7 +812,7 @@ __device__ void FwdRad16B1(T* R0,
 }
 
 template <typename T>
-__device__ void InvRad16B1(T* R0,
+inline void InvRad16B1(T* R0,
                            T* R8,
                            T* R4,
                            T* R12,
