@@ -1606,7 +1606,7 @@ namespace StockhamGenerator
                     str += "\t\t}\n\n"; // "}" enclose the loop intrduced
                 } // end if blockCompute
 
-                str += "}\n}\n\n"; // end the kernel
+                str += "\t}\n}\n\n"; // end the kernel
 
             } // end fwd, backward
         }
