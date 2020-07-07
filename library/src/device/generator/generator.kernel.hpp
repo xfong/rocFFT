@@ -964,46 +964,59 @@ namespace StockhamGenerator
 
 		str += "{\n";
 
+                str += "\t syclQueue.submit([&](cl::sycl::handler &cgh){\n";
+
 		if (placeness == rocfft_placement_inplace)
                 {
                     if(inInterleaved)
                     {
-			str += "\t auto gb = gbBuf->template get_access<cl::sycl::access::mode::read_write>();\n";
+			str += "\t auto gb = gbBuf->template get_access<cl::sycl::access::mode::read_write>(cgh);\n";
                     }
 		    else
                     {
-			str += "\t auto gbRe = gbReBuf->template get_access<cl::sycl::access::mode::read_write>();\n";
-			str += "\t auto gbIm = gbImBuf->template get_access<cl::sycl::access::mode::read_write>();\n";
+			str += "\t auto gbRe = gbReBuf->template get_access<cl::sycl::access::mode::read_write>(cgh);\n";
+			str += "\t auto gbIm = gbImBuf->template get_access<cl::sycl::access::mode::read_write>(cgh);\n";
                     }
                 }
                 else
                 {
                     if(inInterleaved)
                     {
-			str += "\t auto gbIn = gbInBuf->template get_access<cl::sycl::access::mode::read>();\n";
+			str += "\t auto gbIn = gbInBuf->template get_access<cl::sycl::access::mode::read>(cgh);\n";
                     }
                     else
                     {
-			str += "\t auto gbInRe = gbOutReBuf->template get_access<cl::sycl::access::mode::read>();\n";
-			str += "\t auto gbInIm = gbOutImBuf->template get_access<cl::sycl::access::mode::read>();\n";
+			str += "\t auto gbInRe = gbOutReBuf->template get_access<cl::sycl::access::mode::read>(cgh);\n";
+			str += "\t auto gbInIm = gbOutImBuf->template get_access<cl::sycl::access::mode::read>(cgh);\n";
                     }
                     if(outInterleaved)
                     {
-			str += "\t auto gbOut = gbOutBuf->template get_access<cl::sycl::access::mode::write>();\n";
+			str += "\t auto gbOut = gbOutBuf->template get_access<cl::sycl::access::mode::write>(cgh);\n";
                     }
                     else
                     {
-			str += "\t auto gbOutRe = gbOutReBuf->template get_access<cl::sycl::access::mode::write>();\n";
-			str += "\t auto gbOutIm = gbOutImBuf->template get_access<cl::sycl::access::mode::write>();\n";
+			str += "\t auto gbOutRe = gbOutReBuf->template get_access<cl::sycl::access::mode::write>(cgh);\n";
+			str += "\t auto gbOutIm = gbOutImBuf->template get_access<cl::sycl::access::mode::write>(cgh);\n";
                     }
                 }
 
-                str += "{\n";
+                str += "\t cgh.parallel_for<class ";
+                // kernel name
+                if(fwd)
+                    str += "fft_fwd_";
+                else
+                    str += "fft_back_";
+                if(placeness == rocfft_placement_notinplace)
+                    str += "op_len"; // outof place
+                else
+                    str += "ip_len"; // inplace
+                str += std::to_string(length) + name_suffix;
+                str += ">(nd_range<2> { " + + ", " + + "},[=]nd_item<2> item";
 
                 // Initialize
                 str += "\t";
-                str += "unsigned int me = (unsigned int)hipThreadIdx_x;\n\t";
-                str += "unsigned int batch = (unsigned int)hipBlockIdx_x;";
+                str += "unsigned int me = (unsigned int)item.get_local_id(0);\n\t";
+                str += "unsigned int batch = (unsigned int)item.get_group(0);";
                 str += "\n";
 
                 // Allocate LDS
