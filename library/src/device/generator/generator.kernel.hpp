@@ -1011,11 +1011,11 @@ namespace StockhamGenerator
                 else
                     str += "ip_len"; // inplace
                 str += std::to_string(length) + name_suffix;
-                str += ">(nd_range<2> { globalSize * localSize ,  localSize },[=]nd_item<2> item";
+                str += ">(cl::sycl::nd_range<2> { cl::sycl::range<1>(globalSize * localSize), cl::sycl::range<1(localSize)},[=]nd_item<2> item){\n";
 
                 // Initialize
-                str += "\t";
-                str += "unsigned int me = (unsigned int)item.get_local_id(0);\n\t";
+                str += "\t\t";
+                str += "unsigned int me = (unsigned int)item.get_local_id(0);\n\t\t";
                 str += "unsigned int batch = (unsigned int)item.get_group(0);";
                 str += "\n";
 
