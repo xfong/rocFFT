@@ -869,11 +869,11 @@ namespace StockhamGenerator
                 // Function signature
                 if(NeedsLargeTwiddles())
                 {
-                    str += "template <typename T, StrideBin sb, bool TwdLarge>\n";
+                    str += "template <typename T, StrideBin sb, bool TwdLarge, size_t globalSize, size_t localSize>\n";
                 }
                 else
                 {
-                    str += "template <typename T, StrideBin sb>\n";
+                    str += "template <typename T, StrideBin sb, size_t globalSize, size_t localSize>\n";
                 }
                 str += "__global__ void \n";
 
@@ -1011,7 +1011,7 @@ namespace StockhamGenerator
                 else
                     str += "ip_len"; // inplace
                 str += std::to_string(length) + name_suffix;
-                str += ">(nd_range<2> { " + + ", " + + "},[=]nd_item<2> item";
+                str += ">(nd_range<2> { globalSize * localSize ,  localSize },[=]nd_item<2> item";
 
                 // Initialize
                 str += "\t";
