@@ -964,7 +964,7 @@ namespace StockhamGenerator
 
 		str += "{\n";
 
-                str += "\t syclQueue.submit([&](cl::sycl::handler &cgh){\n";
+                str += "\t syclQueue.submit([&](cl::sycl::handler &cgh)\n\t {\n";
 
 		if (placeness == rocfft_placement_inplace)
                 {
@@ -1022,7 +1022,7 @@ namespace StockhamGenerator
                 // Allocate LDS
                 if(blockCompute)
                 {
-                    str += "\n\t";
+                    str += "\n\t\t";
                     str += "__shared__ ";
                     str += r2Type;
                     str += " lds[";
@@ -1035,7 +1035,7 @@ namespace StockhamGenerator
                     ldsSize        = ldsInterleaved ? ldsSize / 2 : ldsSize;
                     if(numPasses > 1)
                     {
-                        str += "\n\t";
+                        str += "\n\t\t";
                         str += "__shared__  ";
                         str += ldsInterleaved ? r2Type : rType;
                         str += " lds[";
@@ -1045,11 +1045,11 @@ namespace StockhamGenerator
                 }
 
                 // Declare memory pointers
-                str += "\n\t";
+                str += "\n\t\t";
 
                 if(placeness == rocfft_placement_inplace)
                 {
-                    str += "unsigned int ioOffset = 0;\n\t";
+                    str += "unsigned int ioOffset = 0;\n\t\t";
 
                     // Skip if callback is set
                     if(!params.fft_hasPreCallback || !params.fft_hasPostCallback)
@@ -1062,7 +1062,7 @@ namespace StockhamGenerator
                         else
                         {
                             str += rType;
-                            str += " *lwbRe;\n\t";
+                            str += " *lwbRe;\n\t\t";
                             str += rType;
                             str += " *lwbIm;\n";
                         }
@@ -1071,8 +1071,8 @@ namespace StockhamGenerator
                 }
                 else
                 {
-                    str += "unsigned int iOffset = 0;\n\t";
-                    str += "unsigned int oOffset = 0;\n\t";
+                    str += "unsigned int iOffset = 0;\n\t\t";
+                    str += "unsigned int oOffset = 0;\n\t\t";
 
                     // Skip if precallback is set
                     if(!(params.fft_hasPreCallback))
@@ -1080,14 +1080,14 @@ namespace StockhamGenerator
                         if(inInterleaved)
                         {
                             str += r2Type;
-                            str += " *lwbIn;\n\t";
+                            str += " *lwbIn;\n\t\t";
                         }
                         else
                         {
                             str += rType;
-                            str += " *lwbInRe;\n\t";
+                            str += " *lwbInRe;\n\t\t";
                             str += rType;
-                            str += " *lwbInIm;\n\t";
+                            str += " *lwbInIm;\n\t\t";
                         }
                     }
 
@@ -1102,7 +1102,7 @@ namespace StockhamGenerator
                         else
                         {
                             str += rType;
-                            str += " *lwbOutRe;\n\t";
+                            str += " *lwbOutRe;\n\t\t";
                             str += rType;
                             str += " *lwbOutIm;\n";
                         }
@@ -1118,12 +1118,12 @@ namespace StockhamGenerator
                 // configurating the thread blocks
                 if((numTrans > 1) && !blockCompute)
                 {
-                    str += "\tunsigned int upper_count = batch_count;\n";
-                    str += "\tfor(int i=1; i<dim; i++){\n";
-                    str += "\t\tupper_count *= lengths[i];\n";
-                    str += "\t}\n";
-                    str += "\t// do signed math to guard against underflow\n";
-                    str += "\tunsigned int rw = (static_cast<int>(me) < "
+                    str += "\t\tunsigned int upper_count = batch_count;\n";
+                    str += "\t\tfor(int i=1; i<dim; i++){\n";
+                    str += "\t\t\tupper_count *= lengths[i];\n";
+                    str += "\t\t}\n";
+                    str += "\t\t// do signed math to guard against underflow\n";
+                    str += "\t\tunsigned int rw = (static_cast<int>(me) < "
                            "(static_cast<int>(upper_count) ";
                     str += " - static_cast<int>(batch)*";
                     str += std::to_string(numTrans);
@@ -1138,12 +1138,8 @@ namespace StockhamGenerator
 
                 // The following lines suppress warning; when rw=1, generator directly
                 // puts 1 as the pass device function
-                str += "\t//suppress warning\n";
-                str += "\t#ifdef __NVCC__\n";
-                str += "\t\t(void)(rw == rw);\n";
-                str += "\t#else\n";
+                str += "\t\t//suppress warning\n";
                 str += "\t\t(void)rw;\n";
-                str += "\t#endif\n";
 
                 // printf("fft_3StepTwiddle = %d, lengths = %zu\n",
                 // params.fft_3StepTwiddle, length);
@@ -1153,11 +1149,11 @@ namespace StockhamGenerator
                 {
                     if(numTrans == 1)
                     {
-                        str += "\tunsigned int b = batch%";
+                        str += "\t\tunsigned int b = batch%";
                     }
                     else
                     {
-                        str += "\tunsigned int b = (batch*";
+                        str += "\t\tunsigned int b = (batch*";
                         str += std::to_string(numTrans);
                         str += " + (me/";
                         str += std::to_string(workGroupSizePerTrans);
@@ -1170,7 +1166,7 @@ namespace StockhamGenerator
                 }
                 else
                 {
-                    str += "\tunsigned int b = 0;\n\n";
+                    str += "\t\tunsigned int b = 0;\n\n";
                 }
 
                 /* =====================================================================
@@ -1185,7 +1181,7 @@ namespace StockhamGenerator
                     else
                         str += OffsetCalc("ioOffset", "stride_in", "", "", false);
 
-                    str += "\t";
+                    str += "\t\t";
 
                     // Skip if callback is set
                     if(!params.fft_hasPreCallback || !params.fft_hasPostCallback)
@@ -1196,7 +1192,7 @@ namespace StockhamGenerator
                         }
                         else
                         {
-                            str += "lwbRe = gbRe + ioOffset;\n\t";
+                            str += "lwbRe = gbRe + ioOffset;\n\t\t";
                             str += "lwbIm = gbIm + ioOffset;\n";
                         }
                     }
@@ -1214,19 +1210,19 @@ namespace StockhamGenerator
                         str += OffsetCalc("iOffset", "stride_in", "oOffset", "stride_out", true);
                     }
 
-                    str += "\t";
+                    str += "\t\t";
 
                     // Skip if precallback is set
                     if(!(params.fft_hasPreCallback))
                     {
                         if(inInterleaved)
                         {
-                            str += "lwbIn = gbIn + iOffset;\n\t";
+                            str += "lwbIn = gbIn + iOffset;\n\t\t";
                         }
                         else
                         {
-                            str += "lwbInRe = gbInRe + iOffset;\n\t";
-                            str += "lwbInIm = gbInIm + iOffset;\n\t";
+                            str += "lwbInRe = gbInRe + iOffset;\n\t\t";
+                            str += "lwbInIm = gbInIm + iOffset;\n\t\t";
                         }
                     }
 
@@ -1239,7 +1235,7 @@ namespace StockhamGenerator
                         }
                         else
                         {
-                            str += "lwbOutRe = gbOutRe + oOffset;\n\t";
+                            str += "lwbOutRe = gbOutRe + oOffset;\n\t\t";
                             str += "lwbOutIm = gbOutIm + oOffset;\n";
                         }
                     }
@@ -1269,14 +1265,14 @@ namespace StockhamGenerator
 
                     size_t loopCount = (length * blockWidth) / blockWGS;
 
-                    str += "\n\tfor(unsigned int t=0; t<";
+                    str += "\n\t\tfor(unsigned int t=0; t<";
                     str += std::to_string(loopCount);
-                    str += "; t++)\n\t{\n";
+                    str += "; t++)\n\t\t{\n";
 
                     // get offset
                     std::string bufOffset;
 
-                    str += "\t\tT R0;\n";
+                    str += "\t\t\tT R0;\n";
 
                     for(size_t c = 0; c < 2; c++)
                     {
@@ -1308,7 +1304,7 @@ namespace StockhamGenerator
                             bufOffset += ")*stride_in[0] + t*stride_in[0]*";
                             bufOffset += std::to_string(blockWGS / blockWidth);
 
-                            str += "\t\tR0";
+                            str += "\t\t\tR0";
                             str += comp;
                             str += " = ";
                             str += readBuf;
@@ -1318,7 +1314,7 @@ namespace StockhamGenerator
                         }
                         else
                         {
-                            str += "\t\tR0";
+                            str += "\t\t\tR0";
                             str += comp;
                             str += " = ";
                             str += readBuf;
@@ -1333,7 +1329,7 @@ namespace StockhamGenerator
 
                     if((blockComputeType == BCT_C2C) || (blockComputeType == BCT_C2R))
                     {
-                        str += "\t\tlds[t*";
+                        str += "\t\t\tlds[t*";
                         str += std::to_string(blockWGS / blockWidth);
                         str += " + ";
                         str += "(me%";
@@ -1348,13 +1344,13 @@ namespace StockhamGenerator
                     }
                     else
                     {
-                        str += "\t\tlds[t*";
+                        str += "\t\t\tlds[t*";
                         str += std::to_string(blockWGS);
                         str += " + me] = R0;";
                         str += "\n";
                     }
 
-                    str += "\t}\n\n";
+                    str += "\t\t}\n\n";
                     str += "\t__syncthreads();\n\n";
                 }
 
@@ -1425,7 +1421,7 @@ namespace StockhamGenerator
                 if(blockCompute) // for blockCompute, a loop is required, inBuf, outBuf
                 // would be overwritten
                 {
-                    str += "\n\tfor(unsigned int t=0; t<";
+                    str += "\n\t\tfor(unsigned int t=0; t<";
                     str += std::to_string(blockWidth / (blockWGS / workGroupSizePerTrans));
                     str += "; t++)\n\t{\n\n";
 
@@ -1434,7 +1430,7 @@ namespace StockhamGenerator
 
                     if(params.fft_3StepTwiddle)
                     {
-                        str += "\t\tb = (batch % (lengths[1]/";
+                        str += "\t\t\tb = (batch % (lengths[1]/";
                         str += std::to_string(blockWidth);
                         // str += std::to_string(params.fft_N[1] / blockWidth);
                         str += "))*";
@@ -1445,15 +1441,15 @@ namespace StockhamGenerator
                         str += std::to_string(workGroupSizePerTrans);
                         str += ");\n\n";
                     }
-                    str += "\t";
+                    str += "\t\t";
                 }
 
-                str += "\t// Perform FFT input: lwb(In) ; output: lwb(Out); working "
+                str += "\t\t// Perform FFT input: lwb(In) ; output: lwb(Out); working "
                        "space: lds \n";
 
                 if(blockCompute)
-                    str += "\t";
-                str += "\t// rw, b, me% control read/write; then ldsOffset, lwb, lds\n";
+                    str += "\t\t";
+                str += "\t\t// rw, b, me% control read/write; then ldsOffset, lwb, lds\n";
 
                 std::string ldsOff;
 
@@ -1465,7 +1461,7 @@ namespace StockhamGenerator
                     ldsOff += std::to_string(workGroupSizePerTrans);
                     ldsOff += ")*";
                     ldsOff += std::to_string(length);
-                    str += "\t";
+                    str += "\t\t";
                 }
                 else
                 {
@@ -1481,7 +1477,7 @@ namespace StockhamGenerator
                         ldsOff += "0";
                     }
                 }
-                str += "\t";
+                str += "\t\t";
                 if(fwd)
                     str += "fwd_len";
                 else
@@ -1515,7 +1511,7 @@ namespace StockhamGenerator
                 if(blockCompute
                    || realSpecial) // the "}" enclose the loop introduced by blockCompute
                 {
-                    str += "\n\t}\n\n";
+                    str += "\n\t\t}\n\n";
                 }
 
                 // Write data from shared memory (LDS) for blocked access
@@ -1524,14 +1520,14 @@ namespace StockhamGenerator
 
                     size_t loopCount = (length * blockWidth) / blockWGS;
 
-                    str += "\t__syncthreads();\n\n";
-                    str += "\n\tfor(unsigned int t=0; t<";
+                    str += "\t\t__syncthreads();\n\n";
+                    str += "\n\t\tfor(unsigned int t=0; t<";
                     str += std::to_string(loopCount);
-                    str += "; t++)\n\t{\n";
+                    str += "; t++)\n\t\t{\n";
 
                     if((blockComputeType == BCT_C2C) || (blockComputeType == BCT_R2C))
                     {
-                        str += "\t\tT R0 = lds[t*";
+                        str += "\t\t\tT R0 = lds[t*";
                         str += std::to_string(blockWGS / blockWidth);
                         str += " + ";
                         str += "(me%";
@@ -1546,7 +1542,7 @@ namespace StockhamGenerator
                     }
                     else
                     {
-                        str += "\t\tT R0 = lds[t*";
+                        str += "\t\t\tT R0 = lds[t*";
                         str += std::to_string(blockWGS);
                         str += " + me];";
                         str += "\n";
@@ -1568,7 +1564,7 @@ namespace StockhamGenerator
                         {
                             {
                                 // start to calc the global write offset
-                                str += "\t\t";
+                                str += "\t\t\t";
                                 str += writeBuf;
                                 str += "[(me%";
                                 str += std::to_string(blockWidth);
@@ -1594,7 +1590,7 @@ namespace StockhamGenerator
                         }
                         else
                         {
-                            str += "\t\t";
+                            str += "\t\t\t";
                             str += writeBuf;
                             str += "[me + t*";
                             str += std::to_string(blockWGS);
@@ -1607,7 +1603,7 @@ namespace StockhamGenerator
                             break;
                     }
 
-                    str += "\t}\n\n"; // "}" enclose the loop intrduced
+                    str += "\t\t}\n\n"; // "}" enclose the loop intrduced
                 } // end if blockCompute
 
                 str += "}\n}\n\n"; // end the kernel
