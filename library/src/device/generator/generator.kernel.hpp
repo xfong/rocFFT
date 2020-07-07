@@ -970,37 +970,37 @@ namespace StockhamGenerator
                 {
                     if(inInterleaved)
                     {
-			str += "\t auto gb = gbBuf->template get_access<cl::sycl::access::mode::read_write>(cgh);\n";
+			str += "\t\t auto gb = gbBuf->template get_access<cl::sycl::access::mode::read_write>(cgh);\n";
                     }
 		    else
                     {
-			str += "\t auto gbRe = gbReBuf->template get_access<cl::sycl::access::mode::read_write>(cgh);\n";
-			str += "\t auto gbIm = gbImBuf->template get_access<cl::sycl::access::mode::read_write>(cgh);\n";
+			str += "\t\t auto gbRe = gbReBuf->template get_access<cl::sycl::access::mode::read_write>(cgh);\n";
+			str += "\t\t auto gbIm = gbImBuf->template get_access<cl::sycl::access::mode::read_write>(cgh);\n";
                     }
                 }
                 else
                 {
                     if(inInterleaved)
                     {
-			str += "\t auto gbIn = gbInBuf->template get_access<cl::sycl::access::mode::read>(cgh);\n";
+			str += "\t\t auto gbIn = gbInBuf->template get_access<cl::sycl::access::mode::read>(cgh);\n";
                     }
                     else
                     {
-			str += "\t auto gbInRe = gbOutReBuf->template get_access<cl::sycl::access::mode::read>(cgh);\n";
-			str += "\t auto gbInIm = gbOutImBuf->template get_access<cl::sycl::access::mode::read>(cgh);\n";
+			str += "\t\t auto gbInRe = gbOutReBuf->template get_access<cl::sycl::access::mode::read>(cgh);\n";
+			str += "\t\t auto gbInIm = gbOutImBuf->template get_access<cl::sycl::access::mode::read>(cgh);\n";
                     }
                     if(outInterleaved)
                     {
-			str += "\t auto gbOut = gbOutBuf->template get_access<cl::sycl::access::mode::write>(cgh);\n";
+			str += "\t\t auto gbOut = gbOutBuf->template get_access<cl::sycl::access::mode::write>(cgh);\n";
                     }
                     else
                     {
-			str += "\t auto gbOutRe = gbOutReBuf->template get_access<cl::sycl::access::mode::write>(cgh);\n";
-			str += "\t auto gbOutIm = gbOutImBuf->template get_access<cl::sycl::access::mode::write>(cgh);\n";
+			str += "\t\t auto gbOutRe = gbOutReBuf->template get_access<cl::sycl::access::mode::write>(cgh);\n";
+			str += "\t\t auto gbOutIm = gbOutImBuf->template get_access<cl::sycl::access::mode::write>(cgh);\n";
                     }
                 }
 
-                str += "\t cgh.parallel_for<class ";
+                str += "\t\t cgh.parallel_for<class ";
                 // kernel name
                 if(fwd)
                     str += "fft_fwd_";
@@ -1011,7 +1011,7 @@ namespace StockhamGenerator
                 else
                     str += "ip_len"; // inplace
                 str += std::to_string(length) + name_suffix;
-                str += ">(cl::sycl::nd_range<2> { cl::sycl::range<1>(globalSize * localSize), cl::sycl::range<1(localSize)},[=]nd_item<2> item){\n";
+                str += ">(cl::sycl::nd_range<2> { cl::sycl::range<1>(globalSize * localSize),\n\t\t\t cl::sycl::range<1>(localSize)},\n\t\t\t [=]nd_item<2> item){\n";
 
                 // Initialize
                 str += "\t\t";
