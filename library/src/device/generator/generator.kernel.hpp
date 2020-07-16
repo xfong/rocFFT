@@ -826,7 +826,7 @@ namespace StockhamGenerator
                                 if(!halfLds)
                                 {
                                     str += exTab;
-                                    str += "\t__syncthreads();\n";
+                                    str += "\t item.barrier(cl::sycl::access::fence_space::local_space);\n";
                                 }
                             }
                         } // if (numPasses == 1)
@@ -1003,7 +1003,7 @@ namespace StockhamGenerator
                 if(blockCompute) {
                     str += "\t\t cl::sycl::accessor<T, 1, cl::sycl::access::mode::read_write,\n";
                     str += "\t\t                    cl::sycl::access::target::local>\n";
-                    str += "\t\t                    lds(cl::sycl::range<1>(";
+                    str += "\t\t                lds(cl::sycl::range<1>(";
                     str += std::to_string(blockLDS);
                     str += "), cgh);\n";
                 }
@@ -1016,7 +1016,7 @@ namespace StockhamGenerator
                         str += ldsInterleaved ? r2Type : rType;
                         str += ", 1, cl::sycl::access::mode::read_write,\n";
                         str += "\t\t                    cl::sycl::access::target::local>\n";
-                        str += "\t\t                    lds(cl::sycl::range<1>(";
+                        str += "\t\t                lds(cl::sycl::range<1>(";
                         str += std::to_string(ldsSize);
                         str += "), cgh);\n";
                     }
@@ -1373,7 +1373,7 @@ namespace StockhamGenerator
                     }
 
                     str += "\t\t }\n\n";
-                    str += "\t __syncthreads();\n\n";
+                    str += "\t item.barrier(cl::sycl::access::fence_space::local_space);\n\n";
                 }
 
                 /* =====================================================================
@@ -1542,7 +1542,7 @@ namespace StockhamGenerator
 
                     size_t loopCount = (length * blockWidth) / blockWGS;
 
-                    str += "\t\t __syncthreads();\n\n";
+                    str += "\t\t item.barrier(cl::sycl::access::fence_space::local_space);\n\n";
                     str += "\n\t\t for(unsigned int t=0; t<";
                     str += std::to_string(loopCount);
                     str += "; t++)\n\t\t {\n";
