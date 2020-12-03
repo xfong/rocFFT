@@ -22,7 +22,6 @@
 #define ARRAY_FORMAT_H
 
 #include "common.h"
-#include "gpubuf.h"
 
 //-----------------------------------------------------------------------------
 // To support planar format with template, we have the below simple conventions.
@@ -80,12 +79,12 @@ struct Handler
 template <>
 struct Handler<cmplx_float>
 {
-    static __host__ __device__ inline float2 read(cmplx_float const* in, size_t idx)
+    static inline float2 read(cmplx_float const* in, size_t idx)
     {
         return in[idx];
     }
 
-    static __host__ __device__ inline void write(cmplx_float* out, size_t idx, float2 v)
+    static inline void write(cmplx_float* out, size_t idx, float2 v)
     {
         out[idx] = v;
     }
@@ -94,12 +93,12 @@ struct Handler<cmplx_float>
 template <>
 struct Handler<cmplx_double>
 {
-    static __host__ __device__ inline double2 read(cmplx_double const* in, size_t idx)
+    static inline double2 read(cmplx_double const* in, size_t idx)
     {
         return in[idx];
     }
 
-    static __host__ __device__ inline void write(cmplx_double* out, size_t idx, double2 v)
+    static inline void write(cmplx_double* out, size_t idx, double2 v)
     {
         out[idx] = v;
     }
@@ -108,7 +107,7 @@ struct Handler<cmplx_double>
 template <>
 struct Handler<cmplx_float_planar>
 {
-    static __host__ __device__ inline float2 read(cmplx_float_planar const* in, size_t idx)
+    static inline float2 read(cmplx_float_planar const* in, size_t idx)
     {
         float2 t;
         t.x = in->R[idx];
@@ -116,7 +115,7 @@ struct Handler<cmplx_float_planar>
         return t;
     }
 
-    static __host__ __device__ inline void write(cmplx_float_planar* out, size_t idx, float2 v)
+    static inline void write(cmplx_float_planar* out, size_t idx, float2 v)
     {
         out->R[idx] = v.x;
         out->I[idx] = v.y;
@@ -126,7 +125,7 @@ struct Handler<cmplx_float_planar>
 template <>
 struct Handler<cmplx_double_planar>
 {
-    static __host__ __device__ inline double2 read(cmplx_double_planar const* in, size_t idx)
+    static inline double2 read(cmplx_double_planar const* in, size_t idx)
     {
         double2 t;
         t.x = in->R[idx];
@@ -134,7 +133,7 @@ struct Handler<cmplx_double_planar>
         return t;
     }
 
-    static __host__ __device__ inline void write(cmplx_double_planar* out, size_t idx, double2 v)
+    static inline void write(cmplx_double_planar* out, size_t idx, double2 v)
     {
         out->R[idx] = v.x;
         out->I[idx] = v.y;
@@ -159,8 +158,7 @@ struct cmplx_planar_device_buffer
         planar<T> hostBuf;
         hostBuf.R = static_cast<real_type_t<T>*>(real);
         hostBuf.I = static_cast<real_type_t<T>*>(imag);
-        deviceBuf.alloc(sizeof(hostBuf));
-        hipMemcpy(deviceBuf.data(), &hostBuf, sizeof(hostBuf), hipMemcpyHostToDevice);
+        deviceBuf = cl::sycl::buffer<planar<T>>(&hostBuf, sizeof(hostBuf));
     }
     // if we're given const pointers, cheat and cast away const to
     // simplify this struct.  the goal of this struct is to
@@ -171,13 +169,13 @@ struct cmplx_planar_device_buffer
     {
     }
 
-    planar<T>* devicePtr()
+    cl::sycl::buffer<planar<T>> devicePtr()
     {
-        return deviceBuf.data();
+        return deviceBuf;
     }
 
 private:
-    gpubuf_t<planar<T>> deviceBuf;
+    cl::sycl::buffer<planar<T>> deviceBuf;
 };
 
 #endif

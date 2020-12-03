@@ -4,10 +4,25 @@
 
 #ifndef COMMON_H
 #define COMMON_H
+#include "CL/sycl.hpp"
 #include "rocfft.h"
-#include <hip/hip_vector_types.h>
 #include <iostream>
 #include <string>
+
+// Convenience aliases
+#define DEVICE_MARKER inline
+
+#define GLOBAL_MARKER inline
+
+#define SYCL_KERNEL_NAME(...) __VA_ARGS__
+
+template<typename T, int dim>
+using local_acc_t = cl::sycl::accessor<T, dim, cl::sycl::access::mode::read_write, cl::sycl::access::target::local>;
+template<typename T, int dim>
+using gen_acc_t = cl::sycl::accessor<T, dim, cl::sycl::access::mode::read_write, cl::sycl::access::target::global_buffer>;
+template<typename T, int dim>
+using in_acc_t = cl::sycl::accessor<T, dim, cl::sycl::access::mode::read, cl::sycl::access::target::global_buffer>;
+using len_acc = cl::sycl::accessor<size_t, 1, cl::sycl::access::mode::read, cl::sycl::access::target::constant_buffer>;
 
 // NB:
 //   All kernels were compiled based on the assumption that the default max
@@ -42,37 +57,6 @@ static inline constexpr const char* KernelFileName(const char* fullname)
     str += ":";                      \
     str += std::to_string(__LINE__); \
     str += "\n";
-
-#ifdef __NVCC__
-#include "vector_types.h"
-
-__device__ inline float2 operator-(const float2& a, const float2& b)
-{
-    return make_float2(a.x - b.x, a.y - b.y);
-}
-__device__ inline float2 operator+(const float2& a, const float2& b)
-{
-    return make_float2(a.x + b.x, a.y + b.y);
-}
-__device__ inline float2 operator*(const float& a, const float2& b)
-{
-    return make_float2(a * b.x, a * b.y);
-}
-
-__device__ inline double2 operator-(const double2& a, const double2& b)
-{
-    return make_double2(a.x - b.x, a.y - b.y);
-}
-__device__ inline double2 operator+(const double2& a, const double2& b)
-{
-    return make_double2(a.x + b.x, a.y + b.y);
-}
-__device__ inline double2 operator*(const double& a, const double2& b)
-{
-    return make_double2(a * b.x, a * b.y);
-}
-
-#endif
 
 enum StrideBin
 {
@@ -181,62 +165,38 @@ using vector2_type_t = typename vector2_type<T>::type;
 // vector2_type_t<rocfft_precision_double> double2_scalar;
 
 template <typename T>
-__device__ inline T lib_make_vector2(real_type_t<T> v0, real_type_t<T> v1);
+inline T lib_make_vector2(real_type_t<T> v0, real_type_t<T> v1);
 
 template <>
-__device__ inline float2 lib_make_vector2(float v0, float v1)
-#ifdef __NVCC__
-{
-    return make_float2(v0, v1);
-}
-#else
+inline float2 lib_make_vector2(float v0, float v1)
 {
     return float2(v0, v1);
 }
-#endif
 
 template <>
-__device__ inline double2 lib_make_vector2(double v0, double v1)
-#ifdef __NVCC__
-{
-    return make_double2(v0, v1);
-}
-#else
+inline double2 lib_make_vector2(double v0, double v1)
 {
     return double2(v0, v1);
 }
-#endif
 
 template <typename T>
-__device__ inline T
+inline T
     lib_make_vector4(real_type_t<T> v0, real_type_t<T> v1, real_type_t<T> v2, real_type_t<T> v3);
 
 template <>
-__device__ inline float4 lib_make_vector4(float v0, float v1, float v2, float v3)
-#ifdef __NVCC__
-{
-    return make_float4(v0, v1, v2, v3);
-}
-#else
+inline float4 lib_make_vector4(float v0, float v1, float v2, float v3)
 {
     return float4(v0, v1, v2, v3);
 }
-#endif
 
 template <>
-__device__ inline double4 lib_make_vector4(double v0, double v1, double v2, double v3)
-#ifdef __NVCC__
-{
-    return make_double4(v0, v1, v2, v3);
-}
-#else
+inline double4 lib_make_vector4(double v0, double v1, double v2, double v3)
 {
     return double4(v0, v1, v2, v3);
 }
-#endif
 
 template <typename T>
-__device__ T TWLstep1(T* twiddles, size_t u)
+DEVICE_MARKER T TWLstep1(gen_acc_t<T, 1> &twiddles, size_t u)
 {
     size_t j      = u & 255;
     T      result = twiddles[j];
@@ -244,7 +204,7 @@ __device__ T TWLstep1(T* twiddles, size_t u)
 }
 
 template <typename T>
-__device__ T TWLstep2(T* twiddles, size_t u)
+DEVICE_MARKER T TWLstep2(gen_acc_t<T, 1> &twiddles, size_t u)
 {
     size_t j      = u & 255;
     T      result = twiddles[j];
@@ -256,7 +216,7 @@ __device__ T TWLstep2(T* twiddles, size_t u)
 }
 
 template <typename T>
-__device__ T TWLstep3(T* twiddles, size_t u)
+DEVICE_MARKER T TWLstep3(gen_acc_t<T, 1> &twiddles, size_t u)
 {
     size_t j      = u & 255;
     T      result = twiddles[j];
@@ -272,7 +232,7 @@ __device__ T TWLstep3(T* twiddles, size_t u)
 }
 
 template <typename T>
-__device__ T TWLstep4(T* twiddles, size_t u)
+DEVICE_MARKER T TWLstep4(gen_acc_t<T, 1> &twiddles, size_t u)
 {
     size_t j      = u & 255;
     T      result = twiddles[j];

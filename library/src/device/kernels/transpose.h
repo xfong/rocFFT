@@ -23,7 +23,6 @@
 
 #include "array_format.h"
 #include "common.h"
-#include "rocfft_hip.h"
 
 #define MAX_LAUNCH_BOUNDS_TRANSPOSE_KERNEL 1024
 
@@ -82,23 +81,23 @@ template <typename T,
           int    DIR,
           bool   ALL,
           bool   UNIT_STRIDE_0>
-__device__ void transpose_tile_device(const T_I*   input,
-                                      T_O*         output,
-                                      size_t       in_offset,
-                                      size_t       out_offset,
-                                      const size_t m,
-                                      const size_t n,
-                                      size_t       gx,
-                                      size_t       gy,
-                                      size_t       ld_in,
-                                      size_t       ld_out,
-                                      size_t       stride_0_in,
-                                      size_t       stride_0_out,
-                                      T*           twiddles_large)
+DEVICE_MARKER inline void transpose_tile_device(in_acc_t<T_I, 1> &input,
+                                      gen_acc_t<T_O, 1>          &output,
+                                      size_t                     in_offset,
+                                      size_t                     out_offset,
+                                      const size_t               m,
+                                      const size_t               n,
+                                      size_t                     gx,
+                                      size_t                     gy,
+                                      size_t                     ld_in,
+                                      size_t                     ld_out,
+                                      size_t                     stride_0_in,
+                                      size_t                     stride_0_out,
+                                      gen_acc_t<T, 1>            &twiddles_large,
+									  local_acc_t<T, 2>          &shared,
+									  cl::sycl::nd_item<3>       &item_id)
 {
-    __shared__ T shared[DIM_X][DIM_X];
-
-    size_t tid = hipThreadIdx_x + hipThreadIdx_y * hipBlockDim_x;
+    size_t tid = item_id.get_local_id(0) + item_id.get_local_id(1) * item_id.get_local_range(0);
     size_t tx1 = tid % DIM_X;
     size_t ty1 = tid / DIM_X;
 
@@ -119,7 +118,7 @@ __device__ void transpose_tile_device(const T_I*   input,
             TRANSPOSE_TWIDDLE_MUL();
         }
 
-        __syncthreads();
+        item_id.barrier();
 
 #pragma unroll
         for(int i = 0; i < DIM_X; i += DIM_Y)
@@ -158,7 +157,7 @@ __device__ void transpose_tile_device(const T_I*   input,
             }
         }
 
-        __syncthreads();
+        item_id.barrier();
 
         for(size_t i = 0; i < n; i += DIM_Y)
         {
@@ -196,13 +195,15 @@ template <typename T,
           bool   ALL,
           bool   UNIT_STRIDE_0,
           bool   DIAGONAL>
-__global__ void __launch_bounds__(MAX_LAUNCH_BOUNDS_TRANSPOSE_KERNEL)
-    transpose_kernel2(const T_I* input,
-                      T_O*       output,
-                      T*         twiddles_large,
-                      size_t*    lengths,
-                      size_t*    stride_in,
-                      size_t*    stride_out)
+GLOBAL_MARKER void
+    transpose_kernel2(in_acc_t<T_I, 1>     &input,
+                      gen_acc_t<T_O, 1>    &output,
+                      gen_acc_t<T, 1>      &twiddles_large,
+                      len_acc              lengths,
+                      len_acc              stride_in,
+                      len_acc              stride_out,
+					  local_acc_t<T, 2>    &shared,
+					  cl::sycl::nd_item<3> &item_id)
 {
     size_t ld_in  = stride_in[1];
     size_t ld_out = stride_out[1];
@@ -210,7 +211,7 @@ __global__ void __launch_bounds__(MAX_LAUNCH_BOUNDS_TRANSPOSE_KERNEL)
     size_t iOffset = 0;
     size_t oOffset = 0;
 
-    size_t counter_mod = hipBlockIdx_z;
+    size_t counter_mod = item_id.get_group(2);
 
     iOffset += counter_mod * stride_in[2];
     oOffset += counter_mod * stride_out[2];
@@ -219,14 +220,14 @@ __global__ void __launch_bounds__(MAX_LAUNCH_BOUNDS_TRANSPOSE_KERNEL)
     if(DIAGONAL) // diagonal reordering
     {
         //TODO: template and simplify index calc for square case if necessary
-        size_t bid     = hipBlockIdx_x + gridDim.x * hipBlockIdx_y;
-        tileBlockIdx_y = bid % hipGridDim_y;
-        tileBlockIdx_x = ((bid / hipGridDim_y) + tileBlockIdx_y) % hipGridDim_x;
+        size_t bid     = item_id.get_group(0) + item_id.get_num_group(0) * item_id.get_group(1);
+        tileBlockIdx_y = bid % item_id.get_num_group(1);
+        tileBlockIdx_x = ((bid / item_id.get_num_group(1)) + tileBlockIdx_y) % item_id.get_num_group(0);
     }
     else
     {
-        tileBlockIdx_x = hipBlockIdx_x;
-        tileBlockIdx_y = hipBlockIdx_y;
+        tileBlockIdx_x = item_id.get_group(0);
+        tileBlockIdx_y = item_id.get_group(1);
     }
 
     iOffset += tileBlockIdx_x * DIM_X * stride_in[0] + tileBlockIdx_y * DIM_X * ld_in;
@@ -245,9 +246,11 @@ __global__ void __launch_bounds__(MAX_LAUNCH_BOUNDS_TRANSPOSE_KERNEL)
             tileBlockIdx_y * DIM_X,
             ld_in,
             ld_out,
-            stride_in[0],
-            stride_out[0],
-            twiddles_large);
+            stride_in,
+            stride_out,
+            twiddles_large,
+			shared,
+			item_id);
     }
     else
     {
@@ -266,11 +269,62 @@ __global__ void __launch_bounds__(MAX_LAUNCH_BOUNDS_TRANSPOSE_KERNEL)
             tileBlockIdx_y * DIM_X,
             ld_in,
             ld_out,
-            stride_in[0],
-            stride_out[0],
-            twiddles_large);
+            stride_in,
+            stride_out,
+            twiddles_large,
+			shared,
+			item_id);
     }
 }
+
+template <typename T,
+          typename T_I,
+          typename T_O,
+          size_t DIM_X,
+          size_t DIM_Y,
+          bool   WITH_TWL,
+          int    TWL,
+          int    DIR,
+          bool   ALL,
+          bool   UNIT_STRIDE_0,
+          bool   DIAGONAL>
+class transpose_kernel2_t {
+	private:
+		const in_acc_t<T_I, 1> input_acc;
+		gen_acc_t<T_O, 1>      output_acc;
+		gen_acc_t<T, 1>        twiddles_large_acc;
+		len_acc                lengths_arr;
+		len_acc                stride_in_arr;
+		len_acc                stride_out_arr;
+		local_acc_t<T, 2>      shared_acc;
+		
+	public:
+		transpose_kernel2_t(const in_acc_t<T_I, 1> in_acc_,
+							gen_acc_t<T_O, 1>      out_acc_,
+							gen_acc_t<T, 1>        twiddles_large_acc_,
+							len_acc                lengths_arr_,
+							len_acc                stride_in_arr_,
+							len_acc                stride_out_arr_,
+							local_acc_t<T, 2>      shared_acc_)
+						: input_acc(in_acc_),
+						  output_acc(out_acc_),
+						  twiddles_large_acc(twiddles_large_acc_),
+						  lengths_arr(lengths_arr_),
+						  stride_in_arr(stride_in_arr_),
+						  stride_out_arr(stride_out_arr_),
+						  shared_acc(shared_acc_) {}
+
+		void operator()(cl::sycl::nd_item<3> item_id) {
+			transpose_kernel2<T, T_I, T_O, DIM_X, DIM_Y, WITH_TWL, TWL, DIR, ALL, UNIT_STRIDE_0, DIAGONAL>(input_acc,
+																										   output_acc,
+																										   twiddles_large_acc,
+																										   lengths_arr,
+																										   stride_in_arr,
+																										   stride_out_arr,
+																										   shared_acc,
+																										   item_id);
+		}
+};
 
 // tiled transpose device function for transpose_scheme
 template <typename T,
@@ -280,20 +334,20 @@ template <typename T,
           size_t DIM_Y,
           bool   ALL,
           bool   UNIT_STRIDE_0>
-__device__ void transpose_tile_device_scheme(const T_I*   input,
-                                             T_O*         output,
-                                             size_t       in_offset,
-                                             size_t       out_offset,
-                                             const size_t m,
-                                             const size_t n,
-                                             size_t       ld_in,
-                                             size_t       ld_out,
-                                             size_t       stride_0_in,
-                                             size_t       stride_0_out)
+DEVICE_MARKER void transpose_tile_device_scheme(in_acc_t<T_I, 1>  &input,
+                                             gen_acc_t<T_O, 1>    &output,
+                                             size_t               in_offset,
+                                             size_t               out_offset,
+                                             const size_t         m,
+                                             const size_t         n,
+                                             size_t               ld_in,
+                                             size_t               ld_out,
+                                             size_t               stride_0_in,
+                                             size_t               stride_0_out,
+											 local_acc_t<T, 2>    &shared,
+											 cl::sycl::nd_item<3> &item_id)
 {
-    __shared__ T shared[DIM_X][DIM_X];
-
-    size_t tid = hipThreadIdx_x + hipThreadIdx_y * hipBlockDim_x;
+    size_t tid = item_id.get_local_id(0) + item_id.get_local_id(1) * item_id.get_local_range(0);
     size_t tx1 = tid % DIM_X;
     size_t ty1 = tid / DIM_X;
 
@@ -314,7 +368,7 @@ __device__ void transpose_tile_device_scheme(const T_I*   input,
             shared[tx1][ty1 + i] = tmp; // the transpose taking place here
         }
 
-        __syncthreads();
+        item_id.barrier();
 
 #pragma unroll
         for(int i = 0; i < DIM_X; i += DIM_Y)
@@ -353,7 +407,7 @@ __device__ void transpose_tile_device_scheme(const T_I*   input,
             }
         }
 
-        __syncthreads();
+        item_id.barrier();
 
         for(size_t i = 0; i < n; i += DIM_Y)
         {
@@ -385,22 +439,24 @@ template <typename T,
           bool   ALL,
           bool   UNIT_STRIDE_0,
           bool   DIAGONAL>
-__global__ void __launch_bounds__(MAX_LAUNCH_BOUNDS_TRANSPOSE_KERNEL)
-    transpose_kernel2_scheme(const T_I* input,
-                             T_O*       output,
-                             T*         twiddles_large,
-                             size_t*    lengths,
-                             size_t*    stride_in,
-                             size_t*    stride_out,
-                             size_t     ld_in,
-                             size_t     ld_out,
-                             size_t     m,
-                             size_t     n)
+GLOBAL_MARKER void
+    transpose_kernel2_scheme(in_acc_t<T_I, 1>     &input,
+                             gen_acc_t<T_O, 1>    &output,
+                             gen_acc_t<T, 1>      &twiddles_large,
+                             len_acc              lengths,
+                             len_acc              stride_in,
+                             len_acc              stride_out,
+                             size_t               ld_in,
+                             size_t               ld_out,
+                             size_t               m,
+                             size_t               n,
+							 local_acc_t<T, 2>    &shared,
+							 cl::sycl::nd_item<3> &item_id)
 {
     size_t iOffset = 0;
     size_t oOffset = 0;
 
-    size_t counter_mod = hipBlockIdx_z;
+    size_t counter_mod = item_id.get_group(2);
 
     iOffset += counter_mod * stride_in[3];
     oOffset += counter_mod * stride_out[3];
@@ -409,14 +465,14 @@ __global__ void __launch_bounds__(MAX_LAUNCH_BOUNDS_TRANSPOSE_KERNEL)
     if(DIAGONAL) // diagonal reordering
     {
         //TODO: template and simplify index calc for square case if necessary
-        size_t bid     = hipBlockIdx_x + gridDim.x * hipBlockIdx_y;
-        tileBlockIdx_y = bid % hipGridDim_y;
-        tileBlockIdx_x = ((bid / hipGridDim_y) + tileBlockIdx_y) % hipGridDim_x;
+        size_t bid     = item_id.get_group(0) + item_id.get_num_group(0) * item_id.get_group(1);
+        tileBlockIdx_y = bid % item_id.get_num_group(1);
+        tileBlockIdx_x = ((bid / item_id.get_num_group(1)) + tileBlockIdx_y) % item_id.get_num_group(0);
     }
     else
     {
-        tileBlockIdx_x = hipBlockIdx_x;
-        tileBlockIdx_y = hipBlockIdx_y;
+        tileBlockIdx_x = item_id.get_group(0);
+        tileBlockIdx_y = item_id.get_group(1);
     }
 
     iOffset += tileBlockIdx_x * DIM_X * stride_in[0] + tileBlockIdx_y * DIM_X * ld_in;
@@ -432,16 +488,88 @@ __global__ void __launch_bounds__(MAX_LAUNCH_BOUNDS_TRANSPOSE_KERNEL)
                                                                                     DIM_X,
                                                                                     ld_in,
                                                                                     ld_out,
-                                                                                    stride_in[0],
-                                                                                    stride_out[0]);
+                                                                                    stride_in,
+                                                                                    stride_out,
+																					shared,
+																					item_id);
     }
     else
     {
         size_t mm = min(m - tileBlockIdx_y * DIM_X, DIM_X); // the partial case along m
         size_t nn = min(n - tileBlockIdx_x * DIM_X, DIM_X); // the partial case along n
-        transpose_tile_device_scheme<T, T_I, T_O, DIM_X, DIM_Y, ALL, UNIT_STRIDE_0>(
-            input, output, iOffset, oOffset, mm, nn, ld_in, ld_out, stride_in[0], stride_out[0]);
+        transpose_tile_device_scheme<T, T_I, T_O, DIM_X, DIM_Y, ALL, UNIT_STRIDE_0>(input,
+                                                                                    output,
+																					iOffset,
+																					oOffset,
+																					mm,
+																					nn,
+																					ld_in,
+																					ld_out,
+																					stride_in,
+																					stride_out,
+																					shared,
+																					item_id);
     }
 }
 
+template <typename T,
+          typename T_I,
+          typename T_O,
+          size_t DIM_X,
+          size_t DIM_Y,
+          bool   ALL,
+          bool   UNIT_STRIDE_0,
+          bool   DIAGONAL>
+class transpose_kernel2_scheme_t{
+	private:
+		in_acc_t<T_I, 1>     input_acc;
+        gen_acc_t<T_O, 1>    output_acc;
+        gen_acc_t<T, 1>      twiddles_large_acc;
+        len_acc              lengths_acc,
+        len_acc              stride_in_acc,
+        len_acc              stride_out_acc,
+        size_t               ld_in,
+        size_t               ld_out,
+        size_t               m,
+        size_t               n,
+		local_acc_t<T, 2>    shared_acc,
+
+	public:
+		transpose_kernel2_scheme_t(in_acc_t<T_I, 1> input_acc_,
+								gen_acc_t<T_O, 1>   output_acc_,
+								gen_acc_t<T, 1>     twiddles_large_acc_,
+								len_acc             lengths_acc_,
+								len_acc             stride_in_acc_,
+								len_acc             stride_out_acc_,
+								size_t              ld_in_,
+								size_t              ld_out_,
+								size_t              m_,
+								size_t              n_,
+								local_acc_t<T, 2>   shared_acc_)
+				: input_acc(input_acc_),
+				  output_acc(output_acc_),
+				  twiddles_large_acc(twiddles_large_acc_),
+				  lengths_acc(lengths_acc_),
+				  stride_in_acc(stride_in_acc_),
+				  stride_out_acc(stride_out_acc_),
+				  ld_in(ld_in_),
+				  ld_out(ld_out_),
+				  m(m_),
+				  n(n_),
+				  shared_acc(shared_acc_) {}
+		void operator()(cl::sycl::nd_item<3> item_id) {
+			transpose_kernel2_scheme<T, T_I, T_O, DIM_X, DIM_Y, ALL, UNIT_STRIDE_0, DIAGONAL>(input_acc,
+																							  output_acc,
+																							  twiddles_large_acc,
+																							  lengths_acc,
+																							  stride_in_acc,
+																							  stride_out_acc,
+																							  ld_in,
+																							  ld_out,
+																							  m,
+																							  n,
+																							  shared_acc,
+																							  item_id);
+		}
+};
 #endif // TRANSPOSE_H
